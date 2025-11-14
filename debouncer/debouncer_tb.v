@@ -11,91 +11,100 @@
 // any later version. See <http://www.gnu.org/licenses/>.                     //
 ////////////////////////////////////////////////////////////////////////////////
 
+/*
+   Every button or switch may produces "bounces" when changing from on to off or
+   from off to on: the contact oscillates during the connection or disconnection
+   process and several pulses can be produced before the connection settles to
+   an stable value. In digital, the signal may oscillate between '0' and '1'
+   before reaching the final state.
+
+   For this reason, in any practical digital circuits, inputs coming from
+   switches or push buttons are filtered through special circuits called
+   "debouncers" that eliminate the oscillating part of the signal and produce
+   a single transition when the signal changes from one value to the other.
+
+   Because bounces are produced very quickly and last for a very short time
+   (less than 1ms) a possible strategy to implement a bouncer is to use a
+   counter so that the input (bouncing) value is copied to the output only
+   when it has been stable for a given number of clock cycles.
+
+   In this examples, a debouncer circuit with an input x and an output z is
+   implemented so that the input is considered stable and copied to the
+   output when it has been stable for about 1ms. The system clock is
+   considered to run at 50MHz.
+
+   An edge detector is also implemented. The edge detector generates single
+   clock cycle pulse when the input changes its value. In this example, only
+   positive (rising) edges are detected. An edge detector can be used together
+   with a debouncer to generate a clean single cycle pulse from a noisy input.
+*/
+
 `timescale 1ns / 1ps
 
-// Test bench
+//////////////////////////////////////////////////////////////////////////
+// Debouncer                                                            //
+//////////////////////////////////////////////////////////////////////////
 
-module test();
+module debouncer #(
+    parameter delay = 50000   // cycles to consider stable
+    )(
+    input wire ck,
+    input wire x,
+    output reg z = 0
+    );
 
-    reg ck;     // clock
-    reg x;      // input
-    wire z0;    // debouncer output
-    wire z;     // edge detector output
+    reg [15:0] count = 0;
 
-    // Units under test
-    /* We use 5 for the number of cycles to wait before changing the
-     * output. The default value of 50000 would make the simulation to
-     * take much more time. */
-    debouncer #(.delay(5)) deb1 (.ck(ck), .x(x), .z(z0));
-    /* The edge detector is connected after the debouncer to generate a
-     * single cycle positive pulse for every key press. */
-    edge_detector ed1 (.ck(ck), .x(z0), .z(z));
+    always @(posedge ck) begin
+        if (x == z) begin
+            count <= delay;
+        end else begin
+            if (count == 0) begin
+                z <= x;
+                count <= delay;
+            end else begin
+                count <= count - 1;
+            end
+        end
+    end
+endmodule // debouncer
 
-    // Waveform generation and simulation control
+//////////////////////////////////////////////////////////////////////////
+// Edge detector WITH detect + mode                                    //
+//////////////////////////////////////////////////////////////////////////
+
+module edge_detector #(
+    parameter detect = 1,   // 1=rising, 0=falling
+    parameter mode   = 1    // 1=positive pulse, 0=negative pulse
+)(
+    input wire ck,
+    input wire x,
+    output reg z
+);
+
+    reg old_x = 0;
+
     initial begin
-        // Waveform generation
-        $dumpfile("test.vcd");
-        $dumpvars(0, test);
-
-        // Signal initialization
-        ck = 0;
-        x = 0;
+        z = (mode == 1) ? 0 : 1;
     end
 
-    // Clock signal with a period of 20ns (f=50MHz)
-    always
-        #10 ck = ~ck;
+    always @(posedge ck) begin
+        old_x <= x;
 
-    // Input
-    /* Input is changed repeatedly generating pulses of different widths.
-     * Only pulses greater than 100ns (5*20) should make the output to
-     * change. */
-    initial begin
-        #200   x = 1;
-        #15    x = 0;
-        #15    x = 1;
-        #40    x = 0;
-        #30    x = 1;
-        #80    x = 0;
-        #30    x = 1;
-        #300   x = 0;
-        #10    x = 1;
-        #40    x = 0;
-        #70    x = 1;
-        #15    x = 0;
-        #200   x = 1;
-        #200   x = 0;
-        #200   $finish;
+        wire rising  = (old_x == 0 && x == 1);
+        wire falling = (old_x == 1 && x == 0);
+        wire event   = (detect == 1) ? rising : falling;
+
+        if (mode == 1) begin
+            if (event)
+                z <= 1;
+            else
+                z <= 0;
+        end else begin
+            if (event)
+                z <= 0;
+            else
+                z <= 1;
+        end
     end
-endmodule
-
-/*
-   EXERCISES
-
-   3. Compile and simulate the examples with:
-
-      $ iverilog debouncer.v debouncer_tb.v
-      $ vvp a.out
-
-   4. Display the results with:
-
-      $ gtkwave test.vcd
-
-      Compare the noisy input 'x' to the clen output 'z0' and the pulse output
-      'z'.
-
-   5. Modify the test bench to instantiate a debouncer with different delays
-      (You may try values 3, 7 and 12 for example) and see what happens to the
-      simulation results.
-
-   6. Modify the edge detector desing to include two parameters "detect" and
-      "mode":
-
-      - detect=0: detect falling edge
-      - detect=1: detect rising edge
-      - mode=0: output is normally 1, detection makes a negative output pulse
-      - mode=1: output is normally 0, detection makes a positive output pulse
-
-      Default values should be detect=1, mode=1. Check the design with a
-      suitable test bench.
-*/
+endmodule // edge_detector
