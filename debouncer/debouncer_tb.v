@@ -26,12 +26,13 @@ module test();
     // Debouncer (delay 5)
     debouncer #(.delay(5)) deb1 (.ck(ck), .x(x), .z(z0));
 
-    // Edge detector test #1: detect rising, positive pulse
-    edge_detector #(.detect(1), .mode(1)) ed_rise_pos (.ck(ck), .x(z0), .z(z_rise_pos));
+    // --- Added debouncers for EXERCISE 5 ---
+    debouncer #(.delay(3))  deb_d3  (.ck(ck), .x(x), .z(z_delay3));
+    debouncer #(.delay(7))  deb_d7  (.ck(ck), .x(x), .z(z_delay7));
+    debouncer #(.delay(12)) deb_d12 (.ck(ck), .x(x), .z(z_delay12));
+    // -----------------------------------------
 
-    // Edge detector test #2: detect falling, negative pulse
-    edge_detector #(.detect(0), .mode(0)) ed_fall_neg (.ck(ck), .x(z0), .z(z_fall_neg));
-
+    // Waveform generation and simulation control
     initial begin
         $dumpfile("test.vcd");
         $dumpvars(0, test);
@@ -60,3 +61,34 @@ module test();
         #200   $finish;
     end
 endmodule
+
+/*
+   EXERCISES
+
+   3. Compile and simulate the examples with:
+
+      $ iverilog debouncer.v debouncer_tb.v
+      $ vvp a.out
+
+   4. Display the results with:
+
+      $ gtkwave test.vcd
+
+      Compare the noisy input 'x' to the clean output 'z0' and the pulse output
+      'z'.
+
+   5. Modify the test bench to instantiate a debouncer with different delays
+      (You may try values 3, 7 and 12 for example) and see what happens to the
+      simulation results.
+
+   6. Modify the edge detector desing to include two parameters "detect" and
+      "mode":
+
+      - detect=0: detect falling edge
+      - detect=1: detect rising edge
+      - mode=0: output is normally 1, detection makes a negative output pulse
+      - mode=1: output is normally 0, detection makes a positive output pulse
+
+      Default values should be detect=1, mode=1. Check the design with a
+      suitable test bench.
+*/
