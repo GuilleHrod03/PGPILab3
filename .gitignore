@@ -1,0 +1,7 @@
+*.out
+*.vcd
+*.vvp
+*.log
+*.tmp
+*.o
+*~

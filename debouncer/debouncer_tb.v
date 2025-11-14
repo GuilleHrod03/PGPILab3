@@ -19,8 +19,14 @@ module test();
 
     reg ck;     // clock
     reg x;      // input
-    wire z0;    // debouncer output
+    wire z0;    // debouncer output (delay=5)
     wire z;     // edge detector output
+
+    // --- Added for EXERCISE 5 ---
+    wire z_delay3;
+    wire z_delay7;
+    wire z_delay12;
+    // -----------------------------
 
     // Units under test
     /* We use 5 for the number of cycles to wait before changing the
@@ -30,6 +36,12 @@ module test();
     /* The edge detector is connected after the debouncer to generate a
      * single cycle positive pulse for every key press. */
     edge_detector ed1 (.ck(ck), .x(z0), .z(z));
+
+    // --- Added debouncers for EXERCISE 5 ---
+    debouncer #(.delay(3))  deb_d3  (.ck(ck), .x(x), .z(z_delay3));
+    debouncer #(.delay(7))  deb_d7  (.ck(ck), .x(x), .z(z_delay7));
+    debouncer #(.delay(12)) deb_d12 (.ck(ck), .x(x), .z(z_delay12));
+    // -----------------------------------------
 
     // Waveform generation and simulation control
     initial begin
@@ -81,7 +93,7 @@ endmodule
 
       $ gtkwave test.vcd
 
-      Compare the noisy input 'x' to the clen output 'z0' and the pulse output
+      Compare the noisy input 'x' to the clean output 'z0' and the pulse output
       'z'.
 
    5. Modify the test bench to instantiate a debouncer with different delays

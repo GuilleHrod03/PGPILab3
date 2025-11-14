@@ -61,10 +61,22 @@ module debouncer #(
          * and reset the counter */
         if (x == z)
             /*** complete ***/
+            begin
+                count <= delay;
+            end
         /* If the input is different from the output, decrement the
          * counter and set z = x only if the counter is zero */
         else begin
             /*** complete ***/
+            begin
+                if (count == 0) begin
+                    z     <= x;
+                    count <= delay;
+                end
+                else begin
+                    count <= count - 1;
+                end
+            end
         end
     end
 endmodule // debouncer
