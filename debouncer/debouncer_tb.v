@@ -11,100 +11,52 @@
 // any later version. See <http://www.gnu.org/licenses/>.                     //
 ////////////////////////////////////////////////////////////////////////////////
 
-/*
-   Every button or switch may produces "bounces" when changing from on to off or
-   from off to on: the contact oscillates during the connection or disconnection
-   process and several pulses can be produced before the connection settles to
-   an stable value. In digital, the signal may oscillate between '0' and '1'
-   before reaching the final state.
-
-   For this reason, in any practical digital circuits, inputs coming from
-   switches or push buttons are filtered through special circuits called
-   "debouncers" that eliminate the oscillating part of the signal and produce
-   a single transition when the signal changes from one value to the other.
-
-   Because bounces are produced very quickly and last for a very short time
-   (less than 1ms) a possible strategy to implement a bouncer is to use a
-   counter so that the input (bouncing) value is copied to the output only
-   when it has been stable for a given number of clock cycles.
-
-   In this examples, a debouncer circuit with an input x and an output z is
-   implemented so that the input is considered stable and copied to the
-   output when it has been stable for about 1ms. The system clock is
-   considered to run at 50MHz.
-
-   An edge detector is also implemented. The edge detector generates single
-   clock cycle pulse when the input changes its value. In this example, only
-   positive (rising) edges are detected. An edge detector can be used together
-   with a debouncer to generate a clean single cycle pulse from a noisy input.
-*/
-
 `timescale 1ns / 1ps
 
-//////////////////////////////////////////////////////////////////////////
-// Debouncer                                                            //
-//////////////////////////////////////////////////////////////////////////
+// Test bench
 
-module debouncer #(
-    parameter delay = 50000   // cycles to consider stable
-    )(
-    input wire ck,
-    input wire x,
-    output reg z = 0
-    );
+module test();
 
-    reg [15:0] count = 0;
+    reg ck;     
+    reg x;      
+    wire z0;    
+    wire z_rise_pos;
+    wire z_fall_neg;
 
-    always @(posedge ck) begin
-        if (x == z) begin
-            count <= delay;
-        end else begin
-            if (count == 0) begin
-                z <= x;
-                count <= delay;
-            end else begin
-                count <= count - 1;
-            end
-        end
-    end
-endmodule // debouncer
+    // Debouncer (delay 5)
+    debouncer #(.delay(5)) deb1 (.ck(ck), .x(x), .z(z0));
 
-//////////////////////////////////////////////////////////////////////////
-// Edge detector WITH detect + mode                                    //
-//////////////////////////////////////////////////////////////////////////
+    // Edge detector test #1: detect rising, positive pulse
+    edge_detector #(.detect(1), .mode(1)) ed_rise_pos (.ck(ck), .x(z0), .z(z_rise_pos));
 
-module edge_detector #(
-    parameter detect = 1,   // 1=rising, 0=falling
-    parameter mode   = 1    // 1=positive pulse, 0=negative pulse
-)(
-    input wire ck,
-    input wire x,
-    output reg z
-);
-
-    reg old_x = 0;
+    // Edge detector test #2: detect falling, negative pulse
+    edge_detector #(.detect(0), .mode(0)) ed_fall_neg (.ck(ck), .x(z0), .z(z_fall_neg));
 
     initial begin
-        z = (mode == 1) ? 0 : 1;
+        $dumpfile("test.vcd");
+        $dumpvars(0, test);
+
+        ck = 0;
+        x  = 0;
     end
 
-    always @(posedge ck) begin
-        old_x <= x;
+    always #10 ck = ~ck;
 
-        wire rising  = (old_x == 0 && x == 1);
-        wire falling = (old_x == 1 && x == 0);
-        wire event   = (detect == 1) ? rising : falling;
-
-        if (mode == 1) begin
-            if (event)
-                z <= 1;
-            else
-                z <= 0;
-        end else begin
-            if (event)
-                z <= 0;
-            else
-                z <= 1;
-        end
+    initial begin
+        #200   x = 1;
+        #15    x = 0;
+        #15    x = 1;
+        #40    x = 0;
+        #30    x = 1;
+        #80    x = 0;
+        #30    x = 1;
+        #300   x = 0;
+        #10    x = 1;
+        #40    x = 0;
+        #70    x = 1;
+        #15    x = 0;
+        #200   x = 1;
+        #200   x = 0;
+        #200   $finish;
     end
-endmodule // edge_detector
+endmodule
